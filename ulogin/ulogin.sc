@@ -5,6 +5,7 @@ if (!USER){
     $text.= '<div style="float: right; margin: 7px 55px;">';
     $text.= '<a href="#" id="uLogin" x-ulogin-params="display=window;';
     $text.= 'fields=first_name,last_name,photo,nickname,email;';
+    $text.= 'verify=1;';
     $text.= 'redirect_uri='.$redirect_url.'">';
     $text.= '<img src="http://ulogin.ru/img/button.png" width=187 height=30/></a>';
     $text.= '</div>';

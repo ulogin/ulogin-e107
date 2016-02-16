@@ -73,42 +73,56 @@ if (isset($_POST['token'])){
      $token = $_POST['token'];
      
      if (function_exists('file_get_contents')){
-            $data = json_decode(file_get_contents('http://ulogin.ru/token.php?token='.$token.'&host='.  urlencode(SITEURL)) , true);
-            if (!isset($data['error'])){
+        $data = json_decode(file_get_contents('http://ulogin.ru/token.php?token='.$token.'&host='.  urlencode(SITEURL)) , true);
+        if (!isset($data['error'])){
              
-            $user_id = 0;
+            $user_id = false;
             $exist = false;
+            $email = strip_tags($data['email']);
             
-             //Check user
+             //достаем привязку аккаунта соцсети из нашей доп. таблицы
             $sql->db_Select("ulogin_user", "uid", "identity = '".$data['identity']."'");
-            $row = $sql -> db_Fetch();
+            $row = $sql->db_Fetch();
             if (isset($row['uid'])){
                 $user_id = $row['uid'];
                 $exist = true;
             }
-            
-            $sql->db_Select("user", "user_id", "user_id = '".$user_id."'");
-            $row = $sql -> db_Fetch();
-            if (isset($row['user_id'])){
-                $user_id = $row['user_id'];
-            }else{
-                $user_id = 0;
+
+            //если ранее нашли привязку, пытаемся достать пользователя с указанным user_id
+            if($user_id !== false){
+                $sql->db_Select("user", "user_id", "user_id = '".$user_id."'");
+                $row = $sql->db_Fetch();
+                if (isset($row['user_id'])){
+                    $user_id = $row['user_id'];
+                }else{
+                    $user_id = false;
+                }
+            }
+
+            //если через привязку не нашли юзера, пытаемся найти пользователя с таким же email-адресом
+            if($user_id === false){
+                //проверяем, чтобы email, полученный от ulogin, был подтвержден
+                if($data['verified_email'] == '1') {
+                    $sql->db_Select("user", "user_id", "user_email = '" . $email . "'");
+                    $row = $sql->db_Fetch();
+                    if (isset($row['user_id'])) {
+                        $user_id = $row['user_id'];
+                    }
+                }
             }
             
             //Add new user 
             if(!$user_id){
                  
                 $user = array();
-                $email_parts = explode('@', $data['email']);
-                $email = strip_tags($data['email']);
                 $name = $tp->toDB(strip_tags(isset($data['nickname']) ? $data['nickname'] : strtr($data['first_name'] , $iso)));
-                $sql->db_Select("user","user_id","user_email = '" . $email . "' or user_loginname = '".$name."'");
-                $result = $sql -> db_Fetch();
+
+                $sql->db_Select("user", "user_id", "user_loginname = '".$name."'");
+                $result = $sql->db_Fetch();
                 while($result){
-                    $sql->db_Select("user","user_id","email = '" . $email . "' or username = '".$name."'");
-                    $result = $sql -> db_Fetch();
+                    $sql->db_Select("user", "user_id", "email = '" . $email . "' or username = '".$name."'");
+                    $result = $sql->db_Fetch();
                     $name = $tp->toDB(strip_tags(isset($data['nickname']) ? $data['nickname'] : strtr($data['first_name'] , $iso)).'_'.  random(4));
-                    $email = $email_parts[0].'+'.$name.'@'.$email_parts[1];
                 }
                 $user['user_email'] = $email;
                 $user['user_loginname'] = $name;
@@ -132,11 +146,11 @@ if (isset($_POST['token'])){
             
             //Login user
             $sql->db_Select("user", "user_loginname", "user_id = ".$user_id);
-            $result = $sql -> db_Fetch();        
+            $result = $sql->db_Fetch();
             if (isset($result['user_loginname'])){
                 $login = $result['user_loginname'];
                 $sql->db_Select("ulogin_user", "token", "identity = '".$data['identity']."'");
-                $result = $sql -> db_Fetch();        
+                $result = $sql->db_Fetch();
                 if (isset($result['token'])){
                     $password = md5($data['identity']).$result['token'];
                     e107_require_once(e_HANDLER."login.php");
@@ -149,5 +163,3 @@ if (isset($_POST['token'])){
     }
     header('Location: '. SITEURL);
 }
-
-?>
