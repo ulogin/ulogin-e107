@@ -149,10 +149,29 @@ if (isset($_POST['token'])){
             $result = $sql->db_Fetch();
             if (isset($result['user_loginname'])){
                 $login = $result['user_loginname'];
+                $password = false;
+
+                //достаем из таблицы привязку текущего аккаунта соцсети к нашему юзеру
                 $sql->db_Select("ulogin_user", "token", "identity = '".$data['identity']."'");
                 $result = $sql->db_Fetch();
-                if (isset($result['token'])){
+
+                if ($result && isset($result['token'])){
+
                     $password = md5($data['identity']).$result['token'];
+
+                } else {
+
+                    //если не нашли прямой привязки, пытаемся найти хоть какую-то привязку ulogin'а к этому юзеру
+                    $sql->db_Select("ulogin_user", "token,identity", "uid = '".$user_id."'");
+                    $result = $sql->db_Fetch();
+
+                    if ($result && isset($result['token'])){
+                        $password = md5($result['identity']).$result['token'];
+                    }
+
+                }
+
+                if($password){
                     e107_require_once(e_HANDLER."login.php");
                     $usr = new userlogin($login, $password, false);
                 }
